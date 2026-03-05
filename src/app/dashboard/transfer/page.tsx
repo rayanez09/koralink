@@ -158,7 +158,17 @@ export default function TransferPage() {
                 throw new Error(data.error || 'Transfer failed')
             }
 
+            if (data.success && data.checkoutUrl) {
+                // Redirect user to Moneroo Checkout for collection
+                window.location.href = data.checkoutUrl
+                return
+            }
+
             setShowPinModal(false)
+            toast({
+                title: "Paiement requis",
+                description: "Redirection vers la plateforme de paiement...",
+            })
             router.push('/dashboard')
             router.refresh()
         } catch (err: any) {

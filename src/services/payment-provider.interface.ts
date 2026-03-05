@@ -1,6 +1,11 @@
 export interface PaymentProvider {
     /**
-     * Initializes a payment/transfer and returns a provider-specific transaction ID or URL.
+     * Initializes a payment (Collection) and returns a checkout URL.
+     */
+    initializePayment(params: PaymentParams): Promise<TransferResult>
+
+    /**
+     * Initializes a payout (Transfer) and returns a provider-specific ID.
      */
     initializeTransfer(params: TransferParams): Promise<TransferResult>
 
@@ -13,6 +18,18 @@ export interface PaymentProvider {
      * Parses the webhook payload into a standardized format.
      */
     parseWebhookEvent(payload: any): WebhookEvent
+}
+
+export interface PaymentParams {
+    amount: number
+    currency: string
+    description: string
+    customerName: string
+    customerEmail: string
+    customerPhone: string
+    referenceId: string
+    successUrl: string
+    cancelUrl: string
 }
 
 export interface TransferParams {
@@ -30,11 +47,13 @@ export interface TransferParams {
 export interface TransferResult {
     success: boolean
     providerTransactionId?: string
+    checkoutUrl?: string
     errorMessage?: string
 }
 
 export interface WebhookEvent {
     providerTransactionId: string
     status: 'success' | 'failed' | 'pending'
+    type: 'payment' | 'payout'
     originalPayload: any
 }

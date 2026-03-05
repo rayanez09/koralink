@@ -1,6 +1,5 @@
 import crypto from 'crypto'
-import { PaymentProvider, TransferParams, TransferResult, WebhookEvent } from './payment-provider.interface'
-import { countryPayoutMethods } from '@/lib/countries'
+import { PaymentParams, PaymentProvider, TransferParams, TransferResult, WebhookEvent } from './payment-provider.interface'
 
 /**
  * Moneroo implementation of the PaymentProvider interface.
@@ -14,34 +13,76 @@ export class MonerooService implements PaymentProvider {
         this.webhookSecret = process.env.MONEROO_WEBHOOK_SECRET || ''
     }
 
-    async initializeTransfer(params: TransferParams): Promise<TransferResult> {
-        // Fallback for local development if keys are missing
-        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key') {
-            console.log('[MonerooService] Running in MOCK mode (No API Key provided)')
-            return this.mockTransfer(params)
+    async initializePayment(params: PaymentParams): Promise<TransferResult> {
+        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || !this.apiKey.startsWith('mon_')) {
+            console.log('[MonerooService] Payment mocked')
+            return {
+                success: true,
+                providerTransactionId: 'mock_payment_' + Date.now(),
+                checkoutUrl: `http://localhost:3000/dashboard/transfer/success?mock=true&ref=${params.referenceId}`
+            }
         }
 
         try {
-            console.log('[MonerooService] Initializing real transfer to Moneroo...')
-
-            // Format phone number to avoid spacing issues
-            const phone = params.recipientNumber.replace(/\s+/g, '')
-
-            // Split recipient name into first/last names
-            const nameParts = params.recipientName.trim().split(/\s+/)
-            const firstName = nameParts[0] || 'Inconnu'
-            const lastName = nameParts.slice(1).join(' ') || firstName
-
-            // Moneroo Payout Payload
             const payload = {
-                amount: Math.round(params.amount), // Must be an integer
-                currency: params.currency, // Receiver's currency
+                amount: Math.round(params.amount),
+                currency: params.currency,
+                description: params.description,
+                customer: {
+                    first_name: params.customerName.split(' ')[0] || 'Client',
+                    last_name: params.customerName.split(' ').slice(1).join(' ') || 'KoraLink',
+                    email: params.customerEmail,
+                    phone: params.customerPhone.replace(/\s+/g, '')
+                },
+                return_url: params.successUrl,
+                cancel_url: params.cancelUrl,
+                metadata: {
+                    reference_id: params.referenceId,
+                    type: 'collection'
+                }
+            }
+
+            const response = await fetch('https://api.moneroo.io/v1/payments/initialize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                body: JSON.stringify(payload)
+            })
+
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.message || 'Payment initialization failed')
+
+            return {
+                success: true,
+                providerTransactionId: data.data?.id,
+                checkoutUrl: data.data?.checkout_url
+            }
+        } catch (error: any) {
+            return { success: false, errorMessage: error.message }
+        }
+    }
+
+    async initializeTransfer(params: TransferParams): Promise<TransferResult> {
+        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || !this.apiKey.startsWith('mon_')) {
+            console.log('[MonerooService] Payout mocked')
+            return {
+                success: true,
+                providerTransactionId: 'mock_payout_' + Date.now()
+            }
+        }
+
+        try {
+            const payload = {
+                amount: Math.round(params.amount),
+                currency: params.currency,
                 method: params.payoutMethod,
                 description: `Transfert KoraLink - ${params.referenceId}`,
                 customer: {
-                    phone: phone,
-                    first_name: firstName,
-                    last_name: lastName,
+                    phone: params.recipientNumber.replace(/\s+/g, ''),
+                    first_name: params.recipientName.split(' ')[0] || 'Inconnu',
+                    last_name: params.recipientName.split(' ').slice(1).join(' ') || 'KoraLink',
                     email: `transfer+${params.referenceId}@koralink.app`
                 },
                 metadata: {
@@ -53,49 +94,25 @@ export class MonerooService implements PaymentProvider {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Accept': 'application/json'
+                    'Authorization': `Bearer ${this.apiKey}`
                 },
                 body: JSON.stringify(payload)
             })
 
             const data = await response.json()
-
-            if (!response.ok) {
-                console.error('[MonerooService] API Error:', data)
-                throw new Error(data.message || 'Le fournisseur de paiement a rejeté le transfert.')
-            }
+            if (!response.ok) throw new Error(data.message || 'Payout failed')
 
             return {
                 success: true,
-                providerTransactionId: data.data?.id || `txn_${Date.now()}`
+                providerTransactionId: data.data?.id
             }
-
         } catch (error: any) {
-            console.error('[MonerooService] Transfer initialization failed:', error)
-            return {
-                success: false,
-                errorMessage: error.message
-            }
+            return { success: false, errorMessage: error.message }
         }
-    }
-
-    private mockTransfer(params: TransferParams): Promise<TransferResult> {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const mockProviderId = `mock_txn_${Math.random().toString(36).substring(7)}`
-                console.log(`[MonerooService.mock] Transfer initialized with ID: ${mockProviderId}`)
-                resolve({
-                    success: true,
-                    providerTransactionId: mockProviderId,
-                })
-            }, 1000)
-        })
     }
 
     verifyWebhookSignature(payload: string, signature: string): boolean {
         if (!this.webhookSecret || this.webhookSecret === 'mock_moneroo_webhook_secret') {
-            console.log('[MonerooService] Webhook validation mocked (no secret key)')
             return true
         }
 
@@ -107,28 +124,29 @@ export class MonerooService implements PaymentProvider {
 
             return hash === signature
         } catch (e) {
-            console.error('[MonerooService] Signature verification failed', e)
             return false
         }
     }
 
     parseWebhookEvent(payload: any): WebhookEvent {
         let status: 'success' | 'failed' | 'pending' = 'pending'
+        const eventType = payload.event || ''
+        const type: 'payment' | 'payout' = eventType.startsWith('payout') ? 'payout' : 'payment'
 
-        // Moneroo payout webhook specifics
-        if (payload.event === 'payout.successful' || payload.data?.status === 'successful' || payload.data?.status === 'success') {
+        const statusStr = payload.data?.status || ''
+        if (statusStr === 'successful' || statusStr === 'success' || eventType.endsWith('.successful')) {
             status = 'success'
-        } else if (payload.event === 'payout.failed' || payload.data?.status === 'failed') {
+        } else if (statusStr === 'failed' || eventType.endsWith('.failed')) {
             status = 'failed'
         }
 
         return {
             providerTransactionId: payload.data?.id || payload.data?.transaction_id || 'unknown',
             status,
+            type,
             originalPayload: payload,
         }
     }
 }
 
-// Export a singleton instance
 export const paymentProvider = new MonerooService()

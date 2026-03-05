@@ -26,7 +26,7 @@ export class TransferController {
 
             const { data: userProfile, error: userError } = await supabase
                 .from('users')
-                .select('transactions_pin, is_banned')
+                .select('transactions_pin, is_banned, full_name, email')
                 .eq('id', userId)
                 .single()
 
@@ -144,7 +144,7 @@ export class TransferController {
                 throw new Error(`⚠️ Vous avez atteint votre limite mensuelle de ${monthlyLimit}$ USD. Vous pourrez envoyer à nouveau le mois prochain.`)
             }
 
-            // 3. Create 'pending' transaction in DB
+            // 3. Create 'awaiting_payment' transaction in DB
             const { data: transaction, error: insertError } = await supabase
                 .from('transactions')
                 .insert({
@@ -153,7 +153,7 @@ export class TransferController {
                     receiver_country: requestDetails.receiverCountry,
                     recipient_name: requestDetails.recipientName,
                     recipient_number: requestDetails.recipientNumber,
-                    amount_sent: totalAmountInput, // we store the total intent as amount_sent for limit purpose
+                    amount_sent: totalAmountInput,
                     currency_sent: requestDetails.currency,
                     exchange_rate: exchangeRate,
                     amount_received: amountReceived,
@@ -161,56 +161,52 @@ export class TransferController {
                     app_fee: appFee,
                     moneroo_fee: 0,
                     total_fee: totalFee,
-                    status: 'pending'
+                    status: 'awaiting_payment', // New status for collection step
+                    payout_method: requestDetails.payoutMethod // Store this for later
                 })
                 .select()
                 .single()
 
-            if (insertError || !transaction) throw new Error('Une erreur est survenue lors de la création du transfert. Veuillez réessayer.')
+            if (insertError || !transaction) throw new Error('Une erreur est survenue lors de la création du transfert.')
 
-            // 4. Initialize transfer with abstract Payment Provider
-            const providerResponse = await paymentProvider.initializeTransfer({
-                amount: amountReceived,
-                currency: targetCurrency, // This is the RECEIVER's currency
-                senderCurrency: requestDetails.currency,
-                recipientNumber: requestDetails.recipientNumber,
-                recipientName: requestDetails.recipientName,
-                senderCountry: requestDetails.senderCountry,
-                receiverCountry: requestDetails.receiverCountry,
+            // 4. Initialize Payment (Collection) instead of direct Payout
+            const providerResponse = await paymentProvider.initializePayment({
+                amount: totalAmountInput, // User pays the total
+                currency: requestDetails.currency,
+                description: `Transfert KoraLink vers ${requestDetails.recipientNumber}`,
+                customerName: userProfile.full_name || 'Client KoraLink',
+                customerEmail: userProfile.email,
+                customerPhone: requestDetails.recipientNumber, // Or user's phone if available
                 referenceId: transaction.id,
-                payoutMethod: requestDetails.payoutMethod
+                successUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/transfer/success?ref=${transaction.id}`,
+                cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/transfer?error=cancelled`
             })
 
             if (!providerResponse.success) {
-                // If provider fails immediately, update status to failed
-                await supabase
-                    .from('transactions')
-                    .update({ status: 'failed' })
-                    .eq('id', transaction.id)
-
-                throw new Error(providerResponse.errorMessage || 'Le service de paiement a refusé cette opération. Vérifiez le numéro du bénéficiaire et réessayez.')
+                await supabase.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
+                throw new Error(providerResponse.errorMessage || 'Impossible d\'initialiser le paiement.')
             }
 
-            // Update transaction with provider ID
+            // Update transaction with provider payment ID
             await supabase
                 .from('transactions')
                 .update({ moneroo_transaction_id: providerResponse.providerTransactionId })
                 .eq('id', transaction.id)
 
-            // 5. Audit Logging - Success
+            // 5. Audit Logging
             await supabase.from('audit_logs').insert({
                 user_id: userId,
-                action: 'INITIATE_TRANSFER',
+                action: 'INITIATE_PAYMENT',
                 entity_id: transaction.id,
                 entity_type: 'transaction',
-                details: { amount: totalAmountInput, destination: requestDetails.recipientNumber },
+                details: { amount: totalAmountInput, provider_id: providerResponse.providerTransactionId },
                 ip_address: ipAddress
             })
 
             return {
                 success: true,
                 transactionId: transaction.id,
-                providerResponse
+                checkoutUrl: providerResponse.checkoutUrl // Return this to frontend for redirect
             }
 
         } catch (error: any) {
@@ -226,6 +222,62 @@ export class TransferController {
                 success: false,
                 error: error.message
             }
+        }
+    }
+
+    static async handleWebhook(payload: any) {
+        const supabase = await createClient()
+        const event = paymentProvider.parseWebhookEvent(payload)
+
+        // Find the transaction by Moneroo ID OR internal referenceId (stored in metadata)
+        const referenceId = payload.data?.metadata?.reference_id || event.providerTransactionId
+
+        const { data: transaction, error } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('id', referenceId)
+            .single()
+
+        if (error || !transaction) {
+            console.error('[TransferController] Transaction not found for webhook:', referenceId)
+            return
+        }
+
+        if (event.type === 'payment' && event.status === 'success') {
+            if (transaction.status !== 'awaiting_payment') return // Already processed
+
+            // 1. Update status to 'payout_pending'
+            await supabase.from('transactions').update({ status: 'payout_pending' }).eq('id', transaction.id)
+
+            // 2. Trigger REAL Payout
+            const payoutResult = await paymentProvider.initializeTransfer({
+                amount: transaction.amount_received,
+                currency: transaction.currency_received,
+                senderCurrency: transaction.currency_sent,
+                recipientNumber: transaction.recipient_number,
+                recipientName: transaction.recipient_name,
+                senderCountry: transaction.sender_country,
+                receiverCountry: transaction.receiver_country,
+                referenceId: transaction.id,
+                payoutMethod: transaction.payout_method || 'orange_ci' // Default or fallback
+            })
+
+            if (payoutResult.success) {
+                await supabase.from('transactions').update({
+                    status: 'pending', // Now pending on provider's side
+                    moneroo_payout_id: payoutResult.providerTransactionId
+                }).eq('id', transaction.id)
+            } else {
+                await supabase.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
+            }
+        }
+
+        if (event.type === 'payout' && event.status === 'success') {
+            await supabase.from('transactions').update({ status: 'success' }).eq('id', transaction.id)
+        }
+
+        if (event.status === 'failed') {
+            await supabase.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
         }
     }
 }
