@@ -43,8 +43,10 @@ export default async function DashboardPage() {
                     <p className="text-3xl font-bold text-zinc-900">{totalFeesPaid.toFixed(2)} XOF</p>
                 </div>
                 <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl shadow-md text-white flex flex-col justify-center">
-                    <p className="text-sm font-medium text-blue-100 mb-1">Transferts en Cours</p>
-                    <p className="text-3xl font-bold">{transactions?.filter(t => t.status === 'pending').length || 0}</p>
+                    <p className="text-sm font-medium text-blue-100 mb-1">Transferts Actifs</p>
+                    <p className="text-3xl font-bold">
+                        {transactions?.filter(t => ['pending', 'awaiting_payment', 'payout_pending'].includes(t.status)).length || 0}
+                    </p>
                 </div>
             </div>
 
@@ -73,12 +75,21 @@ export default async function DashboardPage() {
                                 {transactions.map((tx) => (
                                     <tr key={tx.id} className="hover:bg-zinc-50/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tx.status === 'success' ? 'bg-emerald-100 text-emerald-800' :
-                                                    tx.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                                                        'bg-red-100 text-red-800'
-                                                }`}>
-                                                {tx.status.toUpperCase()}
-                                            </span>
+                                            {(() => {
+                                                const statusMap: Record<string, { label: string, classes: string }> = {
+                                                    success: { label: 'SUCCÈS', classes: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+                                                    failed: { label: 'ÉCHEC', classes: 'bg-red-100 text-red-800 border-red-200' },
+                                                    pending: { label: 'EN COURS', classes: 'bg-amber-100 text-amber-800 border-amber-200' },
+                                                    awaiting_payment: { label: 'À PAYER', classes: 'bg-blue-100 text-blue-800 border-blue-200' },
+                                                    payout_pending: { label: 'ENVOI...', classes: 'bg-indigo-100 text-indigo-800 border-indigo-200' }
+                                                }
+                                                const s = statusMap[tx.status] || { label: tx.status.toUpperCase(), classes: 'bg-zinc-100 text-zinc-800' }
+                                                return (
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${s.classes}`}>
+                                                        {s.label}
+                                                    </span>
+                                                )
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-zinc-600">{new Date(tx.created_at).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 font-medium text-zinc-900">
