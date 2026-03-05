@@ -14,7 +14,7 @@ export class MonerooService implements PaymentProvider {
     }
 
     async initializePayment(params: PaymentParams): Promise<TransferResult> {
-        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || !this.apiKey.startsWith('mon_')) {
+        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || this.apiKey === '') {
             console.log('[MonerooService] Payment mocked')
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
             return {
@@ -71,7 +71,7 @@ export class MonerooService implements PaymentProvider {
     }
 
     async initializeTransfer(params: TransferParams): Promise<TransferResult> {
-        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || !this.apiKey.startsWith('mon_')) {
+        if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || this.apiKey === '') {
             console.log('[MonerooService] Payout mocked')
             return {
                 success: true,
