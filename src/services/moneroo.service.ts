@@ -55,10 +55,15 @@ export class MonerooService implements PaymentProvider {
             const data = await response.json()
             if (!response.ok) throw new Error(data.message || 'Payment initialization failed')
 
+            const checkoutUrl = data.data?.checkout_url || data.checkout_url
+            const providerId = data.data?.id || data.id
+
+            if (!checkoutUrl) throw new Error('Moneroo did not return a checkout URL')
+
             return {
                 success: true,
-                providerTransactionId: data.data?.id,
-                checkoutUrl: data.data?.checkout_url
+                providerTransactionId: providerId,
+                checkoutUrl: checkoutUrl
             }
         } catch (error: any) {
             return { success: false, errorMessage: error.message }

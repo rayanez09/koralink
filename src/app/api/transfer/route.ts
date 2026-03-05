@@ -38,14 +38,25 @@ export async function POST(req: NextRequest) {
         // 4. Controller Delegation
         const result = await TransferController.handleTransfer(user.id, parsedData, ip)
 
+        console.log('[API Transfer] Result:', {
+            success: result.success,
+            transactionId: result.transactionId,
+            hasCheckoutUrl: !!(result as any).checkoutUrl
+        })
+
         if (!result.success) {
             return NextResponse.json({ error: result.error }, { status: 400 })
+        }
+
+        const checkoutUrl = (result as any).checkoutUrl
+        if (!checkoutUrl) {
+            console.error('[API Transfer] Missing checkoutUrl in success result')
         }
 
         return NextResponse.json({
             success: true,
             transactionId: result.transactionId,
-            checkoutUrl: (result as any).checkoutUrl
+            checkoutUrl: checkoutUrl
         })
     } catch (error) {
         if (error instanceof z.ZodError) {
