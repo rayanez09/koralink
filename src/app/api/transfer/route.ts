@@ -42,7 +42,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: result.error }, { status: 400 })
         }
 
-        return NextResponse.json({ success: true, transactionId: result.transactionId })
+        return NextResponse.json({
+            success: true,
+            transactionId: result.transactionId,
+            checkoutUrl: (result as any).checkoutUrl
+        })
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: 'Invalid payload', details: (error as z.ZodError<any>).issues }, { status: 400 })
