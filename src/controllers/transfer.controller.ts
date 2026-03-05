@@ -106,7 +106,7 @@ export class TransferController {
             const amountReceived = netAmountSent * exchangeRate
 
             if (amountReceived <= 0 || netAmountSent <= 0) {
-                throw new Error('Transfer amount is too low to cover fees.')
+                throw new Error('Le montant saisi est trop faible pour couvrir les frais. Essayez un montant plus élevé.')
             }
 
             const now = new Date()
@@ -120,14 +120,14 @@ export class TransferController {
                 .in('status', ['success', 'pending'])
                 .gte('created_at', startOfDay)
 
-            if (dError) throw new Error('Erreur lors de la vérification des limites.')
+            if (dError) throw new Error('Impossible de vérifier vos limites de transfert. Veuillez réessayer.')
 
             const dailyTotalUSD = dailyStats.reduce((sum, t) => sum + getAmountInUSD(t.amount_sent, t.currency_sent), 0)
             const currentTransferUSD = getAmountInUSD(totalAmountInput, requestDetails.currency)
 
             // Limit is based on total spent in USD equivalent
             if (dailyTotalUSD + currentTransferUSD > dailyLimit) {
-                throw new Error(`Limite quotidienne dépassée. Vous ne pouvez envoyer que l'équivalent de $${dailyLimit} USD par jour.`)
+                throw new Error(`⚠️ Vous avez atteint votre limite journalière de ${dailyLimit}$ USD. Revenez demain pour envoyer à nouveau.`)
             }
 
             const { data: monthlyStats, error: mError } = await supabase
@@ -137,11 +137,11 @@ export class TransferController {
                 .in('status', ['success', 'pending'])
                 .gte('created_at', startOfMonth)
 
-            if (mError) throw new Error('Erreur lors de la vérification des limites.')
+            if (mError) throw new Error('Impossible de vérifier vos limites de transfert. Veuillez réessayer.')
 
             const monthlyTotalUSD = monthlyStats.reduce((sum, t) => sum + getAmountInUSD(t.amount_sent, t.currency_sent), 0)
             if (monthlyTotalUSD + currentTransferUSD > monthlyLimit) {
-                throw new Error(`Limite mensuelle dépassée. Vous ne pouvez envoyer que l'équivalent de $${monthlyLimit} USD par mois.`)
+                throw new Error(`⚠️ Vous avez atteint votre limite mensuelle de ${monthlyLimit}$ USD. Vous pourrez envoyer à nouveau le mois prochain.`)
             }
 
             // 3. Create 'pending' transaction in DB
@@ -166,7 +166,7 @@ export class TransferController {
                 .select()
                 .single()
 
-            if (insertError || !transaction) throw new Error('Failed to create pending transaction')
+            if (insertError || !transaction) throw new Error('Une erreur est survenue lors de la création du transfert. Veuillez réessayer.')
 
             // 4. Initialize transfer with abstract Payment Provider
             const providerResponse = await paymentProvider.initializeTransfer({
@@ -188,7 +188,7 @@ export class TransferController {
                     .update({ status: 'failed' })
                     .eq('id', transaction.id)
 
-                throw new Error(providerResponse.errorMessage || 'Provider rejected the transfer')
+                throw new Error(providerResponse.errorMessage || 'Le service de paiement a refusé cette opération. Vérifiez le numéro du bénéficiaire et réessayez.')
             }
 
             // Update transaction with provider ID

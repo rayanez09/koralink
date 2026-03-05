@@ -241,7 +241,7 @@ export default function TransferPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2">
                             <label className="text-sm font-semibold text-zinc-900">Nom du Bénéficiaire</label>
                             <Input
                                 type="text"
@@ -250,8 +250,25 @@ export default function TransferPage() {
                                 onChange={(e) => setRecipientName(e.target.value)}
                                 required
                             />
+                            {/* Confirmation visuelle du bénéficiaire */}
+                            {recipientName.trim().length > 1 && (
+                                <div className="flex items-center gap-3 mt-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg animate-in fade-in slide-in-from-bottom-1 duration-200">
+                                    <div className="w-9 h-9 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                        {recipientName.trim().charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-emerald-600 font-medium">Vous envoyez à</p>
+                                        <p className="text-sm font-bold text-emerald-800 truncate">{recipientName.trim()}</p>
+                                    </div>
+                                    <div className="ml-auto text-emerald-500">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2">
                             <label className="text-sm font-semibold text-zinc-900">Numéro du Bénéficiaire</label>
                             <div className="flex rounded-md border border-zinc-400 bg-transparent focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent overflow-hidden">
                                 <div className="flex items-center justify-center px-3 bg-zinc-100 border-r border-zinc-400 text-sm font-medium text-zinc-700 select-none">

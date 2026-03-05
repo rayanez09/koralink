@@ -36,7 +36,23 @@ function LoginContent() {
         })
 
         if (error) {
-            setError(error.message)
+            // Messages d'erreur traduits et simplifiés pour l'utilisateur
+            const getErrorMessage = (code: string | undefined, msg: string) => {
+                if (code === 'invalid_credentials' || msg.includes('Invalid login credentials')) {
+                    return '\u274C Email ou mot de passe incorrect. Vérifiez vos informations et réessayez.'
+                }
+                if (code === 'email_not_confirmed' || msg.includes('Email not confirmed')) {
+                    return '\u26A0\uFE0F Votre adresse email n\'est pas encore confirmée. Vérifiez votre boîte mail et cliquez sur le lien de confirmation.'
+                }
+                if (code === 'user_not_found') {
+                    return '\u274C Aucun compte trouvé avec cet email. Vérifiez ou créez un compte.'
+                }
+                if (msg.includes('rate limit') || msg.includes('429')) {
+                    return '\u23F3 Trop de tentatives. Attendez quelques minutes avant de réessayer.'
+                }
+                return '\u274C Une erreur est survenue. Vérifiez vos informations et réessayez.'
+            }
+            setError(getErrorMessage(error.code, error.message))
             setIsLoading(false)
         } else {
             // Check user role for routing
