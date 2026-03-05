@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createClient } from '@/lib/supabase/client'
@@ -165,8 +166,7 @@ export default function TransferPage() {
             }
 
             setShowPinModal(false)
-            toast({
-                title: "Paiement requis",
+            toast.success("Paiement requis", {
                 description: "Redirection vers la plateforme de paiement...",
             })
             router.push('/dashboard')
