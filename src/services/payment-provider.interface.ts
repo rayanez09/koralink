@@ -17,12 +17,14 @@ export interface PaymentProvider {
 
 export interface TransferParams {
     amount: number
-    currency: string
+    currency: string       // Currency of the RECEIVER
+    senderCurrency: string  // Currency of the SENDER
     recipientNumber: string
+    recipientName: string
     senderCountry: string
     receiverCountry: string
     referenceId: string // Internal transaction ID
-    payoutMethod: string // e.g: orange_money, mtn, mpesa
+    payoutMethod: string // e.g: orange_ci, mtn_sn, mpesa_ke
 }
 
 export interface TransferResult {

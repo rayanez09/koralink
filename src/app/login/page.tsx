@@ -1,18 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import Link from 'next/link'
 
 export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50">Chargement...</div>}>
+            <LoginContent />
+        </Suspense>
+    )
+}
+
+function LoginContent() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const isVerified = searchParams.get('verified') === 'true'
     const supabase = createClient()
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -64,6 +74,11 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
+                    {isVerified && (
+                        <div className="p-3 bg-emerald-50 text-emerald-700 text-sm rounded-md mb-4 border border-emerald-100 text-center font-medium">
+                            Votre compte est vérifié avec succès. Vous pouvez maintenant vous connecter.
+                        </div>
+                    )}
                     {error && (
                         <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md mb-4 border border-red-100">
                             {error}

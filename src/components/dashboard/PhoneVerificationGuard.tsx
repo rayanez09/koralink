@@ -91,9 +91,14 @@ export function PhoneVerificationGuard({ isVerified }: { isVerified: boolean }) 
                                 className="text-center text-4xl font-mono tracking-[0.5em] h-16 w-full max-w-[240px] mx-auto border-2 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
                                 autoFocus
                             />
-                            <p className="text-xs text-center text-zinc-400 mt-2">
-                                Simulation : un SMS contenant le code d'activation aurait été envoyé à votre numéro.
-                            </p>
+                            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3 rounded-lg text-left mt-4 shadow-sm">
+                                <span className="font-bold flex items-center gap-1 mb-1">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Mode Développement / Démo
+                                </span>
+                                Aucun SMS n'est envoyé car nous n'avons pas encore connecté d'API d'envoi de SMS (comme Twilio ou Vonage). <br />
+                                👉 <strong>Ceci est une simulation. Utilisez le code de test : 1234</strong>
+                            </div>
                         </div>
 
                         <Button

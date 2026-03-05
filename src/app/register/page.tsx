@@ -154,6 +154,9 @@ export default function RegisterPage() {
                                 required
                                 minLength={6}
                             />
+                            <p className="text-xs text-zinc-500 mt-1 font-medium">
+                                💡 Astuce : Utilisez au moins 6 caractères, incluant des majuscules, des chiffres et des symboles pour mieux sécuriser votre compte.
+                            </p>
                         </div>
 
                         <div className="flex items-start gap-3 mt-4 bg-zinc-50 p-3 rounded-lg border border-zinc-200">

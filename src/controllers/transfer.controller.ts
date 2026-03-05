@@ -52,7 +52,7 @@ export class TransferController {
             const dailyLimit = parseFloat(process.env.DAILY_TRANSFER_LIMIT || '1000')
             const monthlyLimit = parseFloat(process.env.MONTHLY_TRANSFER_LIMIT || '5000')
 
-            // Fetch Real Exchange Rate
+            // Fetch Real Exchange Rate & USD Rate
             const sender = requestDetails.senderCountry.toLowerCase()
             const receiver = requestDetails.receiverCountry.toLowerCase()
 
@@ -71,19 +71,6 @@ export class TransferController {
                 } catch (e) {
                     console.error('Failed to fetch real rate in backend, defaulting to 1', e)
                 }
-            }
-
-            // Calculate Fees with Defalcation Logic
-            // The amount passed in requestDetails is the Total Charged to user.
-            const totalAmountInput = requestDetails.amount
-            const appFee = totalAmountInput * (appFeePercentage / 100)
-            const netAmountSent = totalAmountInput - appFee // We deduct the fee to find the converted capital
-
-            const totalFee = appFee
-            const amountReceived = netAmountSent * exchangeRate
-
-            if (amountReceived <= 0 || netAmountSent <= 0) {
-                throw new Error('Transfer amount is too low to cover fees.')
             }
 
             // Fetch USD rates to normalize limit calculations (since limit is in USD)
@@ -109,6 +96,19 @@ export class TransferController {
                 return amount
             }
 
+            // Calculate Fees with Defalcation Logic
+            // The amount passed in requestDetails is the Total Charged to user.
+            const totalAmountInput = requestDetails.amount
+            const appFee = totalAmountInput * (appFeePercentage / 100)
+            const netAmountSent = totalAmountInput - appFee // We deduct the fee to find the converted capital
+
+            const totalFee = appFee
+            const amountReceived = netAmountSent * exchangeRate
+
+            if (amountReceived <= 0 || netAmountSent <= 0) {
+                throw new Error('Transfer amount is too low to cover fees.')
+            }
+
             const now = new Date()
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -117,6 +117,7 @@ export class TransferController {
                 .from('transactions')
                 .select('amount_sent, currency_sent')
                 .eq('user_id', userId)
+                .in('status', ['success', 'pending'])
                 .gte('created_at', startOfDay)
 
             if (dError) throw new Error('Erreur lors de la vérification des limites.')
@@ -133,6 +134,7 @@ export class TransferController {
                 .from('transactions')
                 .select('amount_sent, currency_sent')
                 .eq('user_id', userId)
+                .in('status', ['success', 'pending'])
                 .gte('created_at', startOfMonth)
 
             if (mError) throw new Error('Erreur lors de la vérification des limites.')
@@ -169,8 +171,10 @@ export class TransferController {
             // 4. Initialize transfer with abstract Payment Provider
             const providerResponse = await paymentProvider.initializeTransfer({
                 amount: amountReceived,
-                currency: requestDetails.currency,
+                currency: targetCurrency, // This is the RECEIVER's currency
+                senderCurrency: requestDetails.currency,
                 recipientNumber: requestDetails.recipientNumber,
+                recipientName: requestDetails.recipientName,
                 senderCountry: requestDetails.senderCountry,
                 receiverCountry: requestDetails.receiverCountry,
                 referenceId: transaction.id,

@@ -27,15 +27,22 @@ export class MonerooService implements PaymentProvider {
             // Format phone number to avoid spacing issues
             const phone = params.recipientNumber.replace(/\s+/g, '')
 
+            // Split recipient name into first/last names
+            const nameParts = params.recipientName.trim().split(/\s+/)
+            const firstName = nameParts[0] || 'Inconnu'
+            const lastName = nameParts.slice(1).join(' ') || firstName
+
             // Moneroo Payout Payload
             const payload = {
-                amount: params.amount,
-                currency: params.currency,
-                method: params.payoutMethod, // Dynamically selected by the user on frontend
+                amount: Math.round(params.amount), // Must be an integer
+                currency: params.currency, // Receiver's currency
+                method: params.payoutMethod,
+                description: `Transfert KoraLink - ${params.referenceId}`,
                 customer: {
                     phone: phone,
-                    first_name: "Client",
-                    last_name: "KoraLink"
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: `transfer+${params.referenceId}@koralink.app`
                 },
                 metadata: {
                     reference_id: params.referenceId

@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { createClient } from '@/lib/supabase/client'
 
 const APP_FEE_PERCENTAGE = 0.6
 import { AFRICAN_COUNTRIES, countryPrefixes, countryPlaceholders, countryPayoutMethods } from '@/lib/countries'
 
 export default function TransferPage() {
     const router = useRouter()
+    const supabase = createClient()
     const [amount, setAmount] = useState<number | ''>('')
     const [senderCountry, setSenderCountry] = useState('sn')
     const [receiverCountry, setReceiverCountry] = useState('ci')
@@ -18,6 +20,7 @@ export default function TransferPage() {
     const [payoutMethod, setPayoutMethod] = useState(countryPayoutMethods['ci']?.[0]?.id || '')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [isSenderLocked, setIsSenderLocked] = useState(false)
 
     const [exchangeRate, setExchangeRate] = useState(1)
     const [isFetchingRate, setIsFetchingRate] = useState(false)
@@ -30,8 +33,27 @@ export default function TransferPage() {
     // Identité des devises dynamiques
     const currencySent = AFRICAN_COUNTRIES.find(c => c.code === senderCountry)?.currency || 'XOF'
     const targetCurrency = AFRICAN_COUNTRIES.find(c => c.code === receiverCountry)?.currency || 'XOF'
+    const senderFlag = AFRICAN_COUNTRIES.find(c => c.code === senderCountry)?.flag || ''
+    const receiverFlag = AFRICAN_COUNTRIES.find(c => c.code === receiverCountry)?.flag || ''
 
-    // Fetch rate
+    // Auto-détection du pays de l'expéditeur depuis le profil Supabase
+    useEffect(() => {
+        const fetchUserCountry = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            const countryCode = user.user_metadata?.country
+            if (countryCode) {
+                const exists = AFRICAN_COUNTRIES.find(c => c.code === countryCode)
+                if (exists) {
+                    setSenderCountry(countryCode)
+                    setIsSenderLocked(true)
+                }
+            }
+        }
+        fetchUserCountry()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     useEffect(() => {
         if (currencySent === targetCurrency) {
             setExchangeRate(1)
@@ -41,6 +63,7 @@ export default function TransferPage() {
         const fetchRate = async () => {
             setIsFetchingRate(true)
             try {
+                // Fetch rate between Currencies
                 const res = await fetch(`/api/rates?base=${currencySent}`)
                 if (res.ok) {
                     const data = await res.json()
@@ -146,34 +169,76 @@ export default function TransferPage() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-sm font-semibold text-zinc-900">Depuis</label>
-                            <select
-                                value={senderCountry}
-                                onChange={e => setSenderCountry(e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                            >
-                                {AFRICAN_COUNTRIES.map(country => (
-                                    <option key={`sender-${country.code}`} value={country.code}>
-                                        {country.name} ({country.currency})
-                                    </option>
-                                ))}
-                            </select>
+                    {/* Country Selectors - New Design with Flags */}
+                    <div className="bg-zinc-50 rounded-xl p-4 border border-zinc-100">
+                        <div className="flex items-center gap-3">
+                            {/* Sender */}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs text-zinc-500 font-medium mb-1.5">Depuis</p>
+                                {isSenderLocked ? (
+                                    <div className="flex items-center gap-2 h-11 px-3 rounded-lg bg-white border border-zinc-200">
+                                        <span className="text-2xl">{senderFlag}</span>
+                                        <div>
+                                            <p className="text-sm font-bold text-zinc-900 leading-none">{currencySent}</p>
+                                            <p className="text-xs text-zinc-500">{AFRICAN_COUNTRIES.find(c => c.code === senderCountry)?.name}</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{senderFlag}</span>
+                                        <select
+                                            value={senderCountry}
+                                            onChange={e => setSenderCountry(e.target.value)}
+                                            className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-3 text-sm font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                        >
+                                            {AFRICAN_COUNTRIES.map(country => (
+                                                <option key={`sender-${country.code}`} value={country.code}>
+                                                    {country.flag} {country.name} ({country.currency})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Arrow */}
+                            <div className="flex-shrink-0 mt-5">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* Receiver */}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs text-zinc-500 font-medium mb-1.5">Vers</p>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{receiverFlag}</span>
+                                    <select
+                                        value={receiverCountry}
+                                        onChange={handleReceiverChange}
+                                        className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-3 text-sm font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                    >
+                                        {AFRICAN_COUNTRIES.map(country => (
+                                            <option key={`receiver-${country.code}`} value={country.code}>
+                                                {country.flag} {country.name} ({country.currency})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-semibold text-zinc-900">Vers</label>
-                            <select
-                                value={receiverCountry}
-                                onChange={handleReceiverChange}
-                                className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                            >
-                                {AFRICAN_COUNTRIES.map(country => (
-                                    <option key={`receiver-${country.code}`} value={country.code}>
-                                        {country.name} ({country.currency})
-                                    </option>
-                                ))}
-                            </select>
+
+                        {/* Exchange Rate Display */}
+                        <div className="mt-3 flex items-center gap-2">
+                            {isFetchingRate ? (
+                                <span className="text-xs text-blue-500 animate-pulse font-medium">Actualisation du taux...</span>
+                            ) : (
+                                <span className="text-xs font-semibold text-emerald-600">
+                                    {senderFlag} 1 {currencySent} = {receiverFlag} {exchangeRate.toFixed(4)} {targetCurrency}
+                                </span>
+                            )}
                         </div>
                     </div>
 
