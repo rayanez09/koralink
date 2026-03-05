@@ -7,19 +7,33 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import Link from 'next/link'
 
+import { AFRICAN_COUNTRIES, countryPrefixes, countryPlaceholders } from '@/lib/countries'
+
 export default function RegisterPage() {
     const [fullName, setFullName] = useState('')
     const [phoneNumber, setPhoneNumber] = useState('')
+    const [country, setCountry] = useState('ci')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isSuccess, setIsSuccess] = useState(false)
+    const [acceptedTerms, setAcceptedTerms] = useState(false)
     const router = useRouter()
     const supabase = createClient()
 
+    const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setCountry(e.target.value)
+        // Le prefix change visuellement via la constante, on ne touche plus à phoneNumber
+    }
+
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!acceptedTerms) {
+            setError("Vous devez accepter les conditions d'utilisation et de confidentialité pour créer un compte.")
+            return
+        }
+
         setIsLoading(true)
         setError(null)
 
@@ -29,7 +43,8 @@ export default function RegisterPage() {
             options: {
                 data: {
                     full_name: fullName,
-                    phone_number: phoneNumber,
+                    phone_number: `${countryPrefixes[country] || ''}${phoneNumber}`,
+                    country: country,
                 },
                 emailRedirectTo: `${window.location.origin}/auth/callback`,
             },
@@ -77,7 +92,7 @@ export default function RegisterPage() {
                         )}
 
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Nom Complet</label>
+                            <label className="text-sm font-semibold text-zinc-900">Nom Complet</label>
                             <Input
                                 type="text"
                                 placeholder="ex. Jean Dupont"
@@ -88,18 +103,38 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Numéro de Téléphone</label>
-                            <Input
-                                type="tel"
-                                placeholder="+225 00000000"
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                required
-                            />
+                            <label className="text-sm font-semibold text-zinc-900">Pays de résidence</label>
+                            <select
+                                value={country}
+                                onChange={handleCountryChange}
+                                className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                            >
+                                {AFRICAN_COUNTRIES.map(c => (
+                                    <option key={c.code} value={c.code}>{c.name}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Email</label>
+                            <label className="text-sm font-semibold text-zinc-900">Numéro de Téléphone</label>
+                            <div className="flex rounded-md border border-zinc-400 bg-transparent focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent overflow-hidden">
+                                <div className="flex items-center justify-center px-3 bg-zinc-100 border-r border-zinc-400 text-sm font-medium text-zinc-700 select-none">
+                                    {countryPrefixes[country] || '+'}
+                                </div>
+                                <Input
+                                    type="tel"
+                                    placeholder={countryPlaceholders[country] || "01 02 03 04 05"}
+                                    maxLength={countryPlaceholders[country]?.replace(/ /g, '').length || 15}
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    required
+                                    className="border-0 focus:ring-0 focus:border-0 rounded-none h-10 px-3 w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-sm font-semibold text-zinc-900">Adresse Email</label>
                             <Input
                                 type="email"
                                 placeholder="Enter your email"
@@ -110,7 +145,7 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Password</label>
+                            <label className="text-sm font-semibold text-zinc-900">Mot de passe</label>
                             <Input
                                 type="password"
                                 placeholder="••••••••"
@@ -121,14 +156,33 @@ export default function RegisterPage() {
                             />
                         </div>
 
-                        <Button type="submit" className="w-full mt-6" isLoading={isLoading}>
-                            Create Account
+                        <div className="flex items-start gap-3 mt-4 bg-zinc-50 p-3 rounded-lg border border-zinc-200">
+                            <div className="flex items-center h-5 mt-0.5">
+                                <input
+                                    id="terms"
+                                    type="checkbox"
+                                    checked={acceptedTerms}
+                                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-white border-zinc-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                                />
+                            </div>
+                            <label htmlFor="terms" className="text-sm text-zinc-600 leading-snug cursor-pointer font-medium">
+                                J'ai lu et j'accepte les{' '}
+                                <Link target="_blank" href="/terms" className="text-blue-600 hover:text-blue-700 hover:underline font-semibold">
+                                    conditions d'utilisation et de confidentialité
+                                </Link>
+                                {' '}de la plateforme KoraLink.
+                            </label>
+                        </div>
+
+                        <Button type="submit" className="w-full mt-6" isLoading={isLoading} disabled={!acceptedTerms}>
+                            Créer mon compte
                         </Button>
 
                         <p className="text-center text-sm text-zinc-600 mt-6">
-                            Already have an account?{' '}
+                            Vous avez déjà un compte ?{' '}
                             <Link href="/login" className="font-semibold text-blue-600 hover:underline">
-                                Sign in
+                                Se connecter
                             </Link>
                         </p>
                     </form>

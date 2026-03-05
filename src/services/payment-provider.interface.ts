@@ -22,6 +22,7 @@ export interface TransferParams {
     senderCountry: string
     receiverCountry: string
     referenceId: string // Internal transaction ID
+    payoutMethod: string // e.g: orange_money, mtn, mpesa
 }
 
 export interface TransferResult {

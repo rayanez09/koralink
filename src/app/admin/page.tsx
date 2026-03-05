@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TransactionActions } from '@/components/admin/TransactionActions'
 
 export default async function AdminDashboardPage() {
     // Use supabaseAdmin to fetch ALL transactions, bypassing RLS
@@ -60,6 +61,7 @@ export default async function AdminDashboardPage() {
                                 <th className="px-6 py-3 text-right">Montant</th>
                                 <th className="px-6 py-3 text-right">Revenus</th>
                                 <th className="px-6 py-3">Statut</th>
+                                <th className="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -90,6 +92,9 @@ export default async function AdminDashboardPage() {
                                             }`}>
                                             {tx.status.toUpperCase()}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <TransactionActions transaction={tx} />
                                     </td>
                                 </tr>
                             ))}

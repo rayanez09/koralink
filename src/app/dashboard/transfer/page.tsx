@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 const APP_FEE_PERCENTAGE = 0.6
-const countryPrefixes: Record<string, string> = { 'sn': '+221', 'ci': '+225', 'gh': '+233' }
+import { AFRICAN_COUNTRIES, countryPrefixes, countryPlaceholders, countryPayoutMethods } from '@/lib/countries'
 
 export default function TransferPage() {
     const router = useRouter()
@@ -14,16 +14,22 @@ export default function TransferPage() {
     const [senderCountry, setSenderCountry] = useState('sn')
     const [receiverCountry, setReceiverCountry] = useState('ci')
     const [recipientName, setRecipientName] = useState('')
-    const [recipientNumber, setRecipientNumber] = useState('+225 ')
+    const [recipientNumber, setRecipientNumber] = useState('')
+    const [payoutMethod, setPayoutMethod] = useState(countryPayoutMethods['ci']?.[0]?.id || '')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const [exchangeRate, setExchangeRate] = useState(1)
     const [isFetchingRate, setIsFetchingRate] = useState(false)
 
-    // Identité des devises
-    const currencySent = senderCountry === 'gh' ? 'GHS' : 'XOF'
-    const targetCurrency = receiverCountry === 'gh' ? 'GHS' : 'XOF'
+    // Security PIN Modal states
+    const [showPinModal, setShowPinModal] = useState(false)
+    const [securityPin, setSecurityPin] = useState('')
+    const [pinError, setPinError] = useState<string | null>(null)
+
+    // Identité des devises dynamiques
+    const currencySent = AFRICAN_COUNTRIES.find(c => c.code === senderCountry)?.currency || 'XOF'
+    const targetCurrency = AFRICAN_COUNTRIES.find(c => c.code === receiverCountry)?.currency || 'XOF'
 
     // Fetch rate
     useEffect(() => {
@@ -49,17 +55,16 @@ export default function TransferPage() {
         fetchRate()
     }, [currencySent, targetCurrency])
 
-    // Auto-update prefix
+    // Auto-update prefix and defaults limits/methods on receiver country change
     const handleReceiverChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newCountry = e.target.value
         setReceiverCountry(newCountry)
 
-        const prefix = countryPrefixes[newCountry] || ''
-        const currentTrimmed = recipientNumber.trim()
-        const isJustPrefix = Object.values(countryPrefixes).some(p => currentTrimmed === p) || currentTrimmed === ''
-
-        if (isJustPrefix) {
-            setRecipientNumber(prefix + ' ')
+        const availableMethods = countryPayoutMethods[newCountry]
+        if (availableMethods && availableMethods.length > 0) {
+            setPayoutMethod(availableMethods[0].id)
+        } else {
+            setPayoutMethod('bank_transfer')
         }
     }
 
@@ -71,14 +76,22 @@ export default function TransferPage() {
 
     const handleTransfer = async (e: React.FormEvent) => {
         e.preventDefault()
-        setIsLoading(true)
         setError(null)
 
         if (amountReceived <= 0) {
             setError('Le montant est trop faible.')
-            setIsLoading(false)
             return
         }
+
+        // Show PIN Modal instead of directly executing
+        setShowPinModal(true)
+        setSecurityPin('')
+        setPinError(null)
+    }
+
+    const executeTransferWithPin = async () => {
+        setIsLoading(true)
+        setPinError(null)
 
         try {
             const response = await fetch('/api/transfer', {
@@ -88,22 +101,32 @@ export default function TransferPage() {
                     amount: amountNum,
                     currency: currencySent,
                     recipientName,
-                    recipientNumber,
+                    recipientNumber: `${countryPrefixes[receiverCountry] || ''}${recipientNumber}`,
                     senderCountry: senderCountry.toUpperCase(),
                     receiverCountry: receiverCountry.toUpperCase(),
+                    payoutMethod,
+                    securityPin: securityPin // We send the pin to be verified by backend
                 })
             })
 
             const data = await response.json()
 
             if (!response.ok) {
+                // If it's specifically a PIN error, we keep the modal open
+                if (data.error && data.error.includes('PIN')) {
+                    setPinError(data.error)
+                    setIsLoading(false)
+                    return
+                }
                 throw new Error(data.error || 'Transfer failed')
             }
 
+            setShowPinModal(false)
             router.push('/dashboard')
             router.refresh()
         } catch (err: any) {
             setError(err.message)
+            setShowPinModal(false)
             setIsLoading(false)
         }
     }
@@ -125,34 +148,53 @@ export default function TransferPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Depuis</label>
+                            <label className="text-sm font-semibold text-zinc-900">Depuis</label>
                             <select
                                 value={senderCountry}
                                 onChange={e => setSenderCountry(e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                             >
-                                <option value="sn">Sénégal (XOF)</option>
-                                <option value="ci">Côte d'Ivoire (XOF)</option>
-                                <option value="gh">Ghana (GHS)</option>
+                                {AFRICAN_COUNTRIES.map(country => (
+                                    <option key={`sender-${country.code}`} value={country.code}>
+                                        {country.name} ({country.currency})
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Vers</label>
+                            <label className="text-sm font-semibold text-zinc-900">Vers</label>
                             <select
                                 value={receiverCountry}
                                 onChange={handleReceiverChange}
-                                className="flex h-10 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                                className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                             >
-                                <option value="ci">Côte d'Ivoire (XOF)</option>
-                                <option value="sn">Sénégal (XOF)</option>
-                                <option value="gh">Ghana (GHS)</option>
+                                {AFRICAN_COUNTRIES.map(country => (
+                                    <option key={`receiver-${country.code}`} value={country.code}>
+                                        {country.name} ({country.currency})
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>
 
+                    <div className="space-y-1">
+                        <label className="text-sm font-semibold text-zinc-900">Méthode de réception</label>
+                        <select
+                            value={payoutMethod}
+                            onChange={(e) => setPayoutMethod(e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-zinc-400 bg-transparent px-3 py-2 text-sm font-medium text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                        >
+                            {(countryPayoutMethods[receiverCountry] || []).map(method => (
+                                <option key={method.id} value={method.id}>
+                                    {method.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Nom du Bénéficiaire</label>
+                            <label className="text-sm font-semibold text-zinc-900">Nom du Bénéficiaire</label>
                             <Input
                                 type="text"
                                 placeholder="ex. Jean Dupont"
@@ -162,19 +204,26 @@ export default function TransferPage() {
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Numéro du Bénéficiaire</label>
-                            <Input
-                                type="text"
-                                placeholder="+225 01 02 03 04 05"
-                                value={recipientNumber}
-                                onChange={(e) => setRecipientNumber(e.target.value)}
-                                required
-                            />
+                            <label className="text-sm font-semibold text-zinc-900">Numéro du Bénéficiaire</label>
+                            <div className="flex rounded-md border border-zinc-400 bg-transparent focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent overflow-hidden">
+                                <div className="flex items-center justify-center px-3 bg-zinc-100 border-r border-zinc-400 text-sm font-medium text-zinc-700 select-none">
+                                    {countryPrefixes[receiverCountry] || '+'}
+                                </div>
+                                <Input
+                                    type="tel"
+                                    placeholder={countryPlaceholders[receiverCountry] || "01 02 03 04 05"}
+                                    maxLength={countryPlaceholders[receiverCountry]?.replace(/ /g, '').length || 15}
+                                    value={recipientNumber}
+                                    onChange={(e) => setRecipientNumber(e.target.value)}
+                                    required
+                                    className="border-0 focus:ring-0 focus:border-0 rounded-none h-10 px-3 w-full"
+                                />
+                            </div>
                         </div>
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-sm font-medium text-zinc-700">Total à Payer ({currencySent})</label>
+                        <label className="text-sm font-semibold text-zinc-900">Total à Payer ({currencySent})</label>
                         <Input
                             type="number"
                             placeholder="0.00"
@@ -221,10 +270,10 @@ export default function TransferPage() {
                         <Button
                             type="submit"
                             className="w-full text-lg h-12"
-                            isLoading={isLoading}
+                            isLoading={isLoading && !showPinModal}
                             disabled={amountReceived <= 0}
                         >
-                            Confirmer le transfert
+                            Payer {amountNum.toFixed(2)} {currencySent}
                         </Button>
                         <p className="text-center text-xs text-zinc-400 mt-4">
                             En confirmant, vous acceptez nos conditions d'utilisation et nos limites. <br />
@@ -233,6 +282,60 @@ export default function TransferPage() {
                     </div>
                 </form>
             </div>
+
+            {/* PIN Security Modal */}
+            {showPinModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+                        <div className="text-center mb-6">
+                            <div className="mx-auto w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-zinc-900">Code de sécurité</h3>
+                            <p className="text-sm text-zinc-500 mt-1">Veuillez entrer votre Code PIN à 4 chiffres pour autoriser l'envoi de {amountNum} {currencySent}.</p>
+                        </div>
+
+                        {pinError && (
+                            <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm font-medium rounded-lg text-center">
+                                {pinError}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <Input
+                                type="password"
+                                inputMode="numeric"
+                                pattern="\d{4}"
+                                maxLength={4}
+                                placeholder="••••"
+                                value={securityPin}
+                                onChange={e => setSecurityPin(e.target.value.replace(/\D/g, ''))}
+                                className="text-center text-3xl font-mono tracking-[0.5em] h-14"
+                                autoFocus
+                            />
+
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setShowPinModal(false)}
+                                    disabled={isLoading}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    onClick={executeTransferWithPin}
+                                    disabled={securityPin.length !== 4}
+                                    isLoading={isLoading}
+                                >
+                                    Valider
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

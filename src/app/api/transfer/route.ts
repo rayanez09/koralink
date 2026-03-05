@@ -11,6 +11,8 @@ const transferSchema = z.object({
     currency: z.string().length(3),
     recipientName: z.string().min(2),
     recipientNumber: z.string().min(8),
+    payoutMethod: z.string().min(2),
+    securityPin: z.string().length(4).optional(),
 })
 
 export async function POST(req: NextRequest) {

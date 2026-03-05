@@ -49,7 +49,7 @@ export async function updateSession(request: NextRequest) {
             .eq('id', user.id)
             .single()
 
-        if (userData?.role !== 'admin') {
+        if (userData?.role !== 'admin' && userData?.role !== 'super_admin') {
             const url = request.nextUrl.clone()
             url.pathname = '/dashboard'
             return NextResponse.redirect(url)
@@ -57,8 +57,18 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (user && (pathname === '/login' || pathname === '/register')) {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
         const url = request.nextUrl.clone()
-        url.pathname = '/dashboard'
+        if (userData?.role === 'admin' || userData?.role === 'super_admin') {
+            url.pathname = '/admin'
+        } else {
+            url.pathname = '/dashboard'
+        }
         return NextResponse.redirect(url)
     }
 
