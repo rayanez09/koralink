@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createClient } from '@/lib/supabase/client'
+import { CountrySelect } from '@/components/ui/CountrySelect'
 
 const APP_FEE_PERCENTAGE = 0.6
 import { AFRICAN_COUNTRIES, countryPrefixes, countryPlaceholders, countryPayoutMethods } from '@/lib/countries'
@@ -169,36 +170,19 @@ export default function TransferPage() {
                         </div>
                     )}
 
-                    {/* Country Selectors - New Design with Flags */}
+                    {/* Country Selectors - Custom Component with Real Flag Images */}
                     <div className="bg-zinc-50 rounded-xl p-4 border border-zinc-100">
                         <div className="flex items-center gap-3">
                             {/* Sender */}
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs text-zinc-500 font-medium mb-1.5">Depuis</p>
-                                {isSenderLocked ? (
-                                    <div className="flex items-center gap-2 h-11 px-3 rounded-lg bg-white border border-zinc-200">
-                                        <span className="text-2xl">{senderFlag}</span>
-                                        <div>
-                                            <p className="text-sm font-bold text-zinc-900 leading-none">{currencySent}</p>
-                                            <p className="text-xs text-zinc-500">{AFRICAN_COUNTRIES.find(c => c.code === senderCountry)?.name}</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{senderFlag}</span>
-                                        <select
-                                            value={senderCountry}
-                                            onChange={e => setSenderCountry(e.target.value)}
-                                            className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-3 text-sm font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                        >
-                                            {AFRICAN_COUNTRIES.map(country => (
-                                                <option key={`sender-${country.code}`} value={country.code}>
-                                                    {country.flag} {country.name} ({country.currency})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
+                                <CountrySelect
+                                    id="sender-country"
+                                    label="Depuis"
+                                    countries={AFRICAN_COUNTRIES}
+                                    value={senderCountry}
+                                    onChange={setSenderCountry}
+                                    disabled={isSenderLocked}
+                                />
                             </div>
 
                             {/* Arrow */}
@@ -212,21 +196,17 @@ export default function TransferPage() {
 
                             {/* Receiver */}
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs text-zinc-500 font-medium mb-1.5">Vers</p>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{receiverFlag}</span>
-                                    <select
-                                        value={receiverCountry}
-                                        onChange={handleReceiverChange}
-                                        className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-3 text-sm font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                    >
-                                        {AFRICAN_COUNTRIES.map(country => (
-                                            <option key={`receiver-${country.code}`} value={country.code}>
-                                                {country.flag} {country.name} ({country.currency})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <CountrySelect
+                                    id="receiver-country"
+                                    label="Vers"
+                                    countries={AFRICAN_COUNTRIES}
+                                    value={receiverCountry}
+                                    onChange={(code) => {
+                                        setReceiverCountry(code)
+                                        const methods = countryPayoutMethods[code]
+                                        setPayoutMethod(methods?.[0]?.id || 'bank_transfer')
+                                    }}
+                                />
                             </div>
                         </div>
 
@@ -235,8 +215,11 @@ export default function TransferPage() {
                             {isFetchingRate ? (
                                 <span className="text-xs text-blue-500 animate-pulse font-medium">Actualisation du taux...</span>
                             ) : (
-                                <span className="text-xs font-semibold text-emerald-600">
-                                    {senderFlag} 1 {currencySent} = {receiverFlag} {exchangeRate.toFixed(4)} {targetCurrency}
+                                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                                    <img src={`https://flagcdn.com/16x12/${senderCountry}.png`} alt="" className="w-4 h-3 rounded-sm" />
+                                    1 {currencySent} =
+                                    <img src={`https://flagcdn.com/16x12/${receiverCountry}.png`} alt="" className="w-4 h-3 rounded-sm" />
+                                    {exchangeRate.toFixed(4)} {targetCurrency}
                                 </span>
                             )}
                         </div>
