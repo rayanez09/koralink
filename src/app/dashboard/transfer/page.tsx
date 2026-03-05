@@ -42,7 +42,20 @@ export default function TransferPage() {
         const fetchUserCountry = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
-            const countryCode = user.user_metadata?.country
+
+            // 1. Priorité : user_metadata.country (défini à l'inscription)
+            let countryCode = user.user_metadata?.country
+
+            // 2. Fallback : table users dans la base de données
+            if (!countryCode) {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('country')
+                    .eq('id', user.id)
+                    .single()
+                countryCode = profile?.country
+            }
+
             if (countryCode) {
                 const exists = AFRICAN_COUNTRIES.find(c => c.code === countryCode)
                 if (exists) {
@@ -245,28 +258,14 @@ export default function TransferPage() {
                             <label className="text-sm font-semibold text-zinc-900">Nom du Bénéficiaire</label>
                             <Input
                                 type="text"
-                                placeholder="ex. Jean Dupont"
+                                placeholder="Nom officiel auprès de l'opérateur Mobile Money"
                                 value={recipientName}
                                 onChange={(e) => setRecipientName(e.target.value)}
                                 required
                             />
-                            {/* Confirmation visuelle du bénéficiaire */}
-                            {recipientName.trim().length > 1 && (
-                                <div className="flex items-center gap-3 mt-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg animate-in fade-in slide-in-from-bottom-1 duration-200">
-                                    <div className="w-9 h-9 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                        {recipientName.trim().charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs text-emerald-600 font-medium">Vous envoyez à</p>
-                                        <p className="text-sm font-bold text-emerald-800 truncate">{recipientName.trim()}</p>
-                                    </div>
-                                    <div className="ml-auto text-emerald-500">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            )}
+                            <p className="text-xs text-zinc-500 mt-1">
+                                Saisissez le nom <strong>exactement tel qu'il est enregistré</strong> auprès de l'opérateur Mobile Money du bénéficiaire.
+                            </p>
                         </div>
                         <div className="space-y-1 col-span-2">
                             <label className="text-sm font-semibold text-zinc-900">Numéro du Bénéficiaire</label>
