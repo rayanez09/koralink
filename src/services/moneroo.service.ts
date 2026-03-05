@@ -16,10 +16,11 @@ export class MonerooService implements PaymentProvider {
     async initializePayment(params: PaymentParams): Promise<TransferResult> {
         if (!this.apiKey || this.apiKey === 'mock_moneroo_api_key' || !this.apiKey.startsWith('mon_')) {
             console.log('[MonerooService] Payment mocked')
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
             return {
                 success: true,
                 providerTransactionId: 'mock_payment_' + Date.now(),
-                checkoutUrl: `http://localhost:3000/dashboard/transfer/success?mock=true&ref=${params.referenceId}`
+                checkoutUrl: `${baseUrl}/dashboard/transfer/success?mock=true&ref=${params.referenceId}`
             }
         }
 

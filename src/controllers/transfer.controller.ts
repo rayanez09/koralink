@@ -169,17 +169,17 @@ export class TransferController {
 
             if (insertError || !transaction) throw new Error('Une erreur est survenue lors de la création du transfert.')
 
-            // 4. Initialize Payment (Collection) instead of direct Payout
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
             const providerResponse = await paymentProvider.initializePayment({
-                amount: totalAmountInput, // User pays the total
+                amount: totalAmountInput,
                 currency: requestDetails.currency,
                 description: `Transfert KoraLink vers ${requestDetails.recipientNumber}`,
                 customerName: userProfile.full_name || 'Client KoraLink',
                 customerEmail: userProfile.email,
-                customerPhone: requestDetails.recipientNumber, // Or user's phone if available
+                customerPhone: requestDetails.recipientNumber,
                 referenceId: transaction.id,
-                successUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/transfer/success?ref=${transaction.id}`,
-                cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/transfer?error=cancelled`
+                successUrl: `${baseUrl}/dashboard/transfer/success?ref=${transaction.id}`,
+                cancelUrl: `${baseUrl}/dashboard/transfer?error=cancelled`
             })
 
             if (!providerResponse.success) {
