@@ -166,8 +166,16 @@ export default function TransferPage() {
             }
 
             setShowPinModal(false)
-            toast.success("Paiement requis", {
-                description: "Redirection vers la plateforme de paiement...",
+
+            // If success but no checkoutUrl, it's an edge case error
+            if (data.success && !data.checkoutUrl) {
+                setError("Erreur : Le lien de paiement n'a pas été généré par le serveur.")
+                setIsLoading(false)
+                return
+            }
+
+            toast.success("Paiement initié", {
+                description: "Vérifiez votre solde si le virement ne s'affiche pas.",
             })
             router.push('/dashboard')
             router.refresh()
