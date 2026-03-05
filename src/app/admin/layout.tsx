@@ -35,7 +35,7 @@ export default async function AdminLayout({
                     KoraLink <span className="font-light text-slate-400">Admin</span>
                 </Link>
                 <Link href="/dashboard" className="text-sm text-slate-300 hover:text-white transition-colors">
-                    Exit to App
+                    Retour à l'application
                 </Link>
             </header>
 

@@ -29,8 +29,8 @@ export default async function DashboardLayout({
 
                 <div className="flex items-center gap-6 text-sm">
                     <nav className="hidden md:flex items-center gap-6 font-medium text-zinc-600">
-                        <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Overview</Link>
-                        <Link href="/dashboard/transfer" className="hover:text-blue-600 transition-colors">Send Money</Link>
+                        <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Aperçu</Link>
+                        <Link href="/dashboard/transfer" className="hover:text-blue-600 transition-colors">Envoyer de l'argent</Link>
                     </nav>
 
                     <div className="flex items-center gap-3 border-l border-zinc-200 pl-6">

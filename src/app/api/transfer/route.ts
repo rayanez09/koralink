@@ -9,6 +9,7 @@ const transferSchema = z.object({
     receiverCountry: z.string().min(2),
     amount: z.number().positive(),
     currency: z.string().length(3),
+    recipientName: z.string().min(2),
     recipientNumber: z.string().min(8),
 })
 

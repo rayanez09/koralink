@@ -9,6 +9,7 @@ import Link from 'next/link'
 
 export default function RegisterPage() {
     const [fullName, setFullName] = useState('')
+    const [phoneNumber, setPhoneNumber] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -22,18 +23,20 @@ export default function RegisterPage() {
         setIsLoading(true)
         setError(null)
 
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: fullName,
-                }
-            }
+                    phone_number: phoneNumber,
+                },
+                emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
         })
 
-        if (error) {
-            setError(error.message)
+        if (signUpError) {
+            setError(signUpError.message)
             setIsLoading(false)
         } else {
             setIsSuccess(true)
@@ -53,16 +56,16 @@ export default function RegisterPage() {
                             Kora<span className="text-blue-600">Link</span>
                         </h1>
                     </Link>
-                    <p className="text-sm text-zinc-500">Create an account to start transferring.</p>
+                    <p className="text-sm text-zinc-500">Créez un compte pour commencer à envoyer.</p>
                 </div>
 
                 {isSuccess ? (
                     <div className="text-center space-y-4">
                         <div className="p-4 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-sm">
-                            Account created successfully! If email confirmation is required, please check your inbox.
+                            Compte créé avec succès ! Si requis, validez votre e-mail.
                         </div>
                         <Link href="/login">
-                            <Button className="w-full">Go to Sign In</Button>
+                            <Button className="w-full">Se Connecter</Button>
                         </Link>
                     </div>
                 ) : (
@@ -74,12 +77,23 @@ export default function RegisterPage() {
                         )}
 
                         <div className="space-y-1">
-                            <label className="text-sm font-medium text-zinc-700">Full Name</label>
+                            <label className="text-sm font-medium text-zinc-700">Nom Complet</label>
                             <Input
                                 type="text"
-                                placeholder="John Doe"
+                                placeholder="ex. Jean Dupont"
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-zinc-700">Numéro de Téléphone</label>
+                            <Input
+                                type="tel"
+                                placeholder="+225 00000000"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
                                 required
                             />
                         </div>

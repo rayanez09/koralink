@@ -43,7 +43,7 @@ export default function LoginPage() {
                             Kora<span className="text-blue-600">Link</span>
                         </h1>
                     </Link>
-                    <p className="text-sm text-zinc-500">Welcome back. Please enter your details.</p>
+                    <p className="text-sm text-zinc-500">Heureux de vous revoir. Saisissez vos accès.</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -54,10 +54,10 @@ export default function LoginPage() {
                     )}
 
                     <div className="space-y-1">
-                        <label className="text-sm font-medium text-zinc-700">Email</label>
+                        <label className="text-sm font-medium text-zinc-700">E-mail</label>
                         <Input
                             type="email"
-                            placeholder="Enter your email"
+                            placeholder="votre@email.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -65,7 +65,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-sm font-medium text-zinc-700">Password</label>
+                        <label className="text-sm font-medium text-zinc-700">Mot de passe</label>
                         <Input
                             type="password"
                             placeholder="••••••••"
@@ -76,13 +76,13 @@ export default function LoginPage() {
                     </div>
 
                     <Button type="submit" className="w-full mt-6" isLoading={isLoading}>
-                        Sign In
+                        Se Connecter
                     </Button>
 
                     <p className="text-center text-sm text-zinc-600 mt-6">
-                        Don't have an account?{' '}
+                        Vous n'avez pas de compte ?{' '}
                         <Link href="/register" className="font-semibold text-blue-600 hover:underline">
-                            Sign up
+                            S'inscrire
                         </Link>
                     </p>
                 </form>

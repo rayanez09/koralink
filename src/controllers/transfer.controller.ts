@@ -6,31 +6,54 @@ interface TransferRequest {
     receiverCountry: string
     amount: number
     currency: string
+    recipientName: string
     recipientNumber: string
 }
+
+// Removed MOCK_EXCHANGE_RATES
 
 export class TransferController {
     static async handleTransfer(userId: string, requestDetails: TransferRequest, ipAddress: string) {
         const supabase = await createClient()
 
         try {
-            // 1. Validate constraints, fetch APP_FEE_PERCENTAGE and MONEROO_FIXED_FEE
-            const appFeePercentage = parseFloat(process.env.APP_FEE_PERCENTAGE || '0.5')
-            const monerooFixedFee = parseFloat(process.env.MONEROO_FIXED_FEE || '0.01')
+            // 1. Validate constraints, fetch APP_FEE_PERCENTAGE
+            const appFeePercentage = parseFloat(process.env.APP_FEE_PERCENTAGE || '0.6')
             const dailyLimit = parseFloat(process.env.DAILY_TRANSFER_LIMIT || '1000')
             const monthlyLimit = parseFloat(process.env.MONTHLY_TRANSFER_LIMIT || '5000')
 
-            // Simplified Exchange Rate (MOCK: 1:1 for MVP)
-            const exchangeRate = 1.0
+            // Fetch Real Exchange Rate
+            const sender = requestDetails.senderCountry.toLowerCase()
+            const receiver = requestDetails.receiverCountry.toLowerCase()
 
-            // Calculate Fees
-            const amountSent = requestDetails.amount
-            const appFee = amountSent * (appFeePercentage / 100)
-            const totalFee = appFee + monerooFixedFee
-            const amountReceived = (amountSent - totalFee) * exchangeRate
+            // Map country to currency
+            const destinationCurrencies: Record<string, string> = { 'sn': 'XOF', 'ci': 'XOF', 'gh': 'GHS' }
+            const targetCurrency = destinationCurrencies[receiver] || 'XOF'
 
-            if (amountReceived <= 0) {
-                throw new Error('Transfer amount is too low after fees')
+            let exchangeRate = 1
+            if (requestDetails.currency !== targetCurrency) {
+                try {
+                    const rateRes = await fetch(`https://api.exchangerate-api.com/v4/latest/${requestDetails.currency}`)
+                    if (rateRes.ok) {
+                        const data = await rateRes.json()
+                        exchangeRate = data.rates[targetCurrency] || 1
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch real rate in backend, defaulting to 1', e)
+                }
+            }
+
+            // Calculate Fees with Defalcation Logic
+            // The amount passed in requestDetails is the Total Charged to user.
+            const totalAmountInput = requestDetails.amount
+            const appFee = totalAmountInput * (appFeePercentage / 100)
+            const netAmountSent = totalAmountInput - appFee // We deduct the fee to find the converted capital
+
+            const totalFee = appFee
+            const amountReceived = netAmountSent * exchangeRate
+
+            if (amountReceived <= 0 || netAmountSent <= 0) {
+                throw new Error('Transfer amount is too low to cover fees.')
             }
 
             // 2. Check Limits (Daily / Monthly)
@@ -48,7 +71,8 @@ export class TransferController {
             if (dError) throw new Error('Error checking daily limits')
 
             const dailyTotal = dailyStats.reduce((sum, t) => sum + t.amount_sent, 0)
-            if (dailyTotal + amountSent > dailyLimit) {
+            // Limit is based on total spent
+            if (dailyTotal + totalAmountInput > dailyLimit) {
                 throw new Error(`Daily limit exceeded. You can only send $${dailyLimit} per day.`)
             }
 
@@ -61,7 +85,7 @@ export class TransferController {
             if (mError) throw new Error('Error checking monthly limits')
 
             const monthlyTotal = monthlyStats.reduce((sum, t) => sum + t.amount_sent, 0)
-            if (monthlyTotal + amountSent > monthlyLimit) {
+            if (monthlyTotal + totalAmountInput > monthlyLimit) {
                 throw new Error(`Monthly limit exceeded. You can only send $${monthlyLimit} per month.`)
             }
 
@@ -72,15 +96,16 @@ export class TransferController {
                     user_id: userId,
                     sender_country: requestDetails.senderCountry,
                     receiver_country: requestDetails.receiverCountry,
-                    amount_sent: amountSent,
+                    recipient_name: requestDetails.recipientName,
+                    recipient_number: requestDetails.recipientNumber,
+                    amount_sent: totalAmountInput, // we store the total intent as amount_sent for limit purpose
                     currency_sent: requestDetails.currency,
                     exchange_rate: exchangeRate,
                     amount_received: amountReceived,
-                    currency_received: requestDetails.currency, // Assuming same currency for MVP simplicity
+                    currency_received: targetCurrency,
                     app_fee: appFee,
-                    moneroo_fee: monerooFixedFee,
+                    moneroo_fee: 0,
                     total_fee: totalFee,
-                    recipient_number: requestDetails.recipientNumber,
                     status: 'pending'
                 })
                 .select()
@@ -120,7 +145,7 @@ export class TransferController {
                 action: 'INITIATE_TRANSFER',
                 entity_id: transaction.id,
                 entity_type: 'transaction',
-                details: { amount: amountSent, destination: requestDetails.recipientNumber },
+                details: { amount: totalAmountInput, destination: requestDetails.recipientNumber },
                 ip_address: ipAddress
             })
 
