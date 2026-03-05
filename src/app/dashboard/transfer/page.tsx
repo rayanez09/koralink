@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { createClient } from '@/lib/supabase/client'
 import { CountrySelect } from '@/components/ui/CountrySelect'
 
-const APP_FEE_PERCENTAGE = 0.6
+const APP_FEE_PERCENTAGE = 0.5
 import { AFRICAN_COUNTRIES, countryPrefixes, countryPlaceholders, countryPayoutMethods } from '@/lib/countries'
 
 export default function TransferPage() {
@@ -170,10 +170,11 @@ export default function TransferPage() {
 
     return (
         <div className="max-w-xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-zinc-900">Envoyer de l'argent</h1>
-                <p className="text-zinc-500">Initiez un transfert international sécurisé.</p>
+            <div className="mb-10 text-center">
+                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Envoyer de l'argent</h1>
+                <p className="text-lg text-zinc-600">Initiez un transfert international sécurisé.</p>
             </div>
+
 
             <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6 sm:p-8">
                 <form onSubmit={handleTransfer} className="space-y-6">
@@ -311,20 +312,17 @@ export default function TransferPage() {
                             <span>Total Saisi</span>
                             <span>{amountNum.toFixed(2)} {currencySent}</span>
                         </div>
-                        <div className="flex justify-between text-sm text-red-500">
-                            <span>Frais de la plateforme ({APP_FEE_PERCENTAGE}%)</span>
-                            <span>- {appFee.toFixed(2)} {currencySent}</span>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-zinc-600">Frais de transfert (0,5%)</span>
+                            <span className="text-red-500 font-medium">- {appFee.toFixed(2)} {currencySent}</span>
                         </div>
 
-                        <div className="h-px bg-zinc-200 w-full my-4 relative">
-                            <div className="absolute left-1/2 -top-2.5 -translate-x-1/2 bg-zinc-50 px-3 text-[10px] text-zinc-500 font-medium tracking-wide whitespace-nowrap">
-                                Taux : 1 {currencySent} = {exchangeRate.toFixed(4)} {targetCurrency}
-                            </div>
-                        </div>
+                        {/* Redundant exchange rate line removed */}
 
-                        <div className="flex justify-between font-bold text-emerald-700 text-xl font-mono">
-                            <span>Le bénéficiaire reçoit</span>
-                            <span className={amountReceived <= 0 ? 'text-red-500' : ''}>
+
+                        <div className="flex justify-between font-bold text-xl font-mono pt-4 border-t border-zinc-100">
+                            <span className="text-zinc-900">Le bénéficiaire reçoit</span>
+                            <span className="text-emerald-600 text-2xl">
                                 {amountReceived.toFixed(2)} {targetCurrency}
                             </span>
                         </div>

@@ -39,7 +39,7 @@ export default function Home() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">réinventés.</span>
             </h1>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-              KoraLink optimise l'accès aux rails financiers africains. Transférez de l'argent instantanément avec une transparence totale et seulement <strong className="text-slate-900">0.6% de frais</strong> par transaction.
+              KoraLink optimise l'accès aux rails financiers africains. Transférez de l'argent instantanément avec une transparence totale et seulement <strong className="text-slate-900">0.5% de frais</strong> par transaction.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-blue-600/25 flex items-center justify-center gap-2">
@@ -67,9 +67,9 @@ export default function Home() {
                 <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-6">
                   <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">Frais de seulement 0.6%</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">Frais de seulement 0.5%</h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Fini les 2% à 10% de frais des méthodes traditionnelles. KoraLink applique un coût transparent de <strong className="text-slate-900">0.6%</strong>, peu importe le montant.
+                  Fini les 2% à 10% de frais des méthodes traditionnelles. KoraLink applique un coût transparent de <strong className="text-slate-900">0.5%</strong>, peu importe le montant.
                 </p>
               </div>
 
